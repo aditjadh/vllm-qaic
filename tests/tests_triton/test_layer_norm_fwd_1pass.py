@@ -144,6 +144,12 @@ def main():
             log(f, f"  rstd: shape={tuple(rstd.shape)}, "
                    f"mean: {'None (RMSNorm)' if mean is None else tuple(mean.shape)}")
 
+            # move all tensors to cpu before comparison
+            x_ref = x_ref.cpu()
+            weight_ref = weight_ref.cpu()
+            bias_ref = bias_ref.cpu() if bias is not None else None
+            z_ref = z_ref.cpu() if z_ref is not None else None
+
             # ── Reference validation ────────────────────────────────────────
             ref_out = reference_norm(
                 x_ref, weight_ref, bias_ref, z_ref, EPS, IS_RMS_NORM
