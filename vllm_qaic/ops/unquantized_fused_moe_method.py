@@ -129,6 +129,47 @@ class QAicUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
         is_no_mul = activation.endswith("_no_mul")
         apply_router_weight_on_input = layer.apply_router_weight_on_input
 
+        qaic_kernel_activations = {
+            "silu",
+            "gelu",
+            "gelu_tanh",
+            "swigluoai",
+            "swiglustep",
+            "silu_no_mul",
+            "gelu_no_mul",
+            "gelu_tanh_no_mul",
+            "relu2_no_mul",
+        }
+        if x.dtype == torch.float16 and activation in qaic_kernel_activations:
+            kernel = os.environ.get("QAIC_UNQUANTIZED_FUSED_MOE_KERNEL", "hmx").lower()
+            if kernel == "hmx":
+                from vllm_qaic._custom_ops import (
+                    unquantized_fused_moe_hmx as unquantized_fused_moe_impl,
+                )
+            elif kernel == "hvx":
+                from vllm_qaic._custom_ops import (
+                    unquantized_fused_moe_hvx as unquantized_fused_moe_impl,
+                )
+            else:
+                raise ValueError(
+                    "QAIC_UNQUANTIZED_FUSED_MOE_KERNEL must be 'hvx' or 'hmx', "
+                    f"got {kernel!r}"
+                )
+
+            return unquantized_fused_moe_impl(
+                x=x,
+                topk_weights=topk_weights,
+                topk_ids=topk_ids,
+                w13_weight=layer.w13_weight,
+                w2_weight=layer.w2_weight,
+                w13_bias=layer.w13_bias if self.moe.has_bias else None,
+                w2_bias=layer.w2_bias if self.moe.has_bias else None,
+                activation=activation,
+                has_bias=self.moe.has_bias,
+                apply_router_weight_on_input=apply_router_weight_on_input,
+                expert_map=layer.expert_map,
+            )
+
         if layer.expert_map is not None:
             raise NotImplementedError(
                 "QAIC unquantized fused MoE fallback does not support expert_map."
@@ -167,6 +208,13 @@ class QAicUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
             tokens = sorted_tokens[offset : offset + count]
             weights = sorted_weights[offset : offset + count]
             tgt_idx = sorted_token_idx[offset : offset + count]
+
+            w13_input = (
+                weights.unsqueeze(-1) * tokens
+                if apply_router_weight_on_input
+                else tokens
+            )
+            gate_up = self._gate_up_matmul(layer, w13_input, expert_id)
 
             w13_input = (
                 weights.unsqueeze(-1) * tokens
@@ -215,7 +263,7 @@ class QAicUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
                 if apply_router_weight_on_input
                 else weights.unsqueeze(-1) * expert_out
             )
-            out.index_put_((tgt_idx,), weighted_out.to(out.dtype), accumulate=True)
+            out.index_put_((tgt_idx,), weighted_out, accumulate=True)
             offset += count
 
         return out
