@@ -62,6 +62,6 @@ class QaicPlatform(QaicPlatformBase):
         )
 
         if not cls.is_aot:
-            from vllm_qaic.quantization.qaic_gpt_oss_mxfp4_config import (  # noqa: F401
+            from vllm_qaic.quantization.qaic_gpt_oss_mxfp4_registration import (  # noqa: F401
                 QaicGptOssMxfp4Config,
             )
