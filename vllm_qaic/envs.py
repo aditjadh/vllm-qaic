@@ -44,6 +44,8 @@ if TYPE_CHECKING:
     # (apply_top_k_top_p_triton) via patch_topk_topp_sampler; when unset the
     # PyTorch sort implementation is used regardless of batch size.
     VLLM_QAIC_TRITON_TOPK_TOPP: bool = False
+    # Route the GPT-OSS MXFP4 quantized fused-MoE forward to vLLM's Triton
+    VLLM_QAIC_TRITON_GPT_OSS_MOE: bool = False
 
 # --8<-- [start:env-vars-definition]
 qaic_environment_variables: dict[str, Callable[[], Any]] = {
@@ -82,6 +84,10 @@ qaic_environment_variables: dict[str, Callable[[], Any]] = {
     == "1",
     "VLLM_QAIC_TRITON_LINEAR": lambda: os.getenv("VLLM_QAIC_TRITON_LINEAR", "0") == "1",
     "VLLM_QAIC_TRITON_TOPK_TOPP": lambda: os.getenv("VLLM_QAIC_TRITON_TOPK_TOPP", "0")
+    == "1",
+    "VLLM_QAIC_TRITON_GPT_OSS_MOE": lambda: os.getenv(
+        "VLLM_QAIC_TRITON_GPT_OSS_MOE", "0"
+    )
     == "1",
 }
 environment_variables.update(qaic_environment_variables)
