@@ -152,6 +152,17 @@ class QaicPlatform(Platform):
         return False
 
     @classmethod
+    def support_hybrid_kv_cache(cls) -> bool:
+        """Use vLLM's hybrid cache manager for eager QAIC execution.
+
+        The eager worker subclasses upstream ``GPUModelRunner``, which keeps
+        attention KV caches and Mamba/GDN recurrent-state caches in separate
+        cache groups.  AOT uses a separate QAIC session/cache implementation,
+        so do not advertise the upstream hybrid manager there.
+        """
+        return not cls.is_aot_inference()
+
+    @classmethod
     @functools.cache
     def get_num_cores(cls, device_id: int = 0) -> int:
         if not cls.is_aot:
