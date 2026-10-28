@@ -67,15 +67,13 @@ class QAicUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
         # weights (layer.w13_weight / layer.w2_weight), the router topk tensors,
         # and applies the gated activation internally (apply_moe_activation), so
         # the routing/activation branching below is handled entirely in-kernel.
-        # Biases (has_bias) are threaded through via biased_moe_quant_config; the
-        # activation string is parsed to the MoEActivation enum. Flag off -> the
-        # QAIC NSP per-expert loop below, bit-for-bit.
+        # Biases (has_bias) are threaded through via biased_moe_quant_config;
+        # layer.activation is already the MoEActivation enum expected by
+        # fused_experts. Flag off -> the QAIC NSP per-expert loop below,
+        # bit-for-bit.
         if triton_op_enabled(
             "FUSED_MOE"
         ) and _supports_triton_fused_moe_without_alignment(layer, x, topk_ids):
-            from vllm.model_executor.layers.fused_moe.activation import (
-                MoEActivation,
-            )
             from vllm.model_executor.layers.fused_moe.config import (
                 biased_moe_quant_config,
             )
@@ -94,7 +92,7 @@ class QAicUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
                 w2=layer.w2_weight,
                 topk_weights=topk_weights,
                 topk_ids=topk_ids,
-                activation=MoEActivation.from_str(layer.activation),
+                activation=layer.activation,
                 apply_router_weight_on_input=layer.apply_router_weight_on_input,
                 global_num_experts=layer.global_num_experts,
                 expert_map=layer.expert_map,
